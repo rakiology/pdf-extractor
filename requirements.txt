@@ -2,3 +2,5 @@ flask
 PyPDF2
 numpy
 opencv-python
+gunicorn
+
