@@ -62,4 +62,7 @@ def list_signatures():
     return jsonify({'images': ['/signatures/' + f for f in files]})
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    import os
+    port = int(os.environ.get("PORT", 10000))  # fallback to 10000 if not on Render
+    app.run(host="0.0.0.0", port=port, debug=True)
+
