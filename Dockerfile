@@ -1,7 +1,7 @@
-# 1. Start from a Python slim image
+# Base image
 FROM python:3.11-slim
 
-# 2. Install Inkscape (and its X virtual framebuffer), plus libs OpenCV needs
+# Install system dependencies for Inkscape, Xvfb, OpenCV
 RUN apt-get update && apt-get install -y \
     inkscape \
     xvfb \
@@ -9,20 +9,23 @@ RUN apt-get update && apt-get install -y \
     libsm6 \
     libxrender1 \
     libxext6 \
-  && apt-get clean
+    && apt-get clean
 
-# 3. Tell xvfb where to point
+# Set virtual display for Inkscape
 ENV DISPLAY=:99
 
-# 4. Copy your code into the container
+# Set the working directory
 WORKDIR /app
-COPY . /app
 
-# 5. Install Python deps
+# Copy the project files into the container
+COPY . .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 6. Expose a port (this is just documentation—Render still injects $PORT)
+# Expose the port (informational only)
 EXPOSE 10000
 
-# 7. Launch the app under Gunicorn, binding to Render’s $PORT
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:$PORT", "--workers", "1"]
+# Start the Flask app using Gunicorn, binding to Render's $PORT
+# Shell form ensures $PORT is expanded correctly
+CMD gunicorn app:app --bind 0.0.0.0:$PORT --workers 1
