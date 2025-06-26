@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF Signature Extractor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .preview { display: flex; flex-wrap: wrap; gap: 1em; margin-top: 2em; }
+        .preview img { border: 1px solid #ccc; max-width: 200px; max-height: 200px; }
+        #extractBtn { margin-left: 1em; }
+        #pdfText { white-space: pre-wrap; margin-top: 2em; }
+    </style>
+</head>
+<body>
+    <h1>PDF Signature Extractor</h1>
+    <form id="pdfForm" enctype="multipart/form-data">
+        <input type="file" id="pdfInput" accept="application/pdf">
+        <button type="button" id="extractBtn">Extract Signatures</button>
+    </form>
+    <div id="status"></div>
+    <h2>Extracted Signatures</h2>
+    <div class="preview" id="signatures"></div>
+    <div id="pdfText"></div>
+    <script>
+        function showBase64Signatures(images) {
+            const container = document.getElementById('signatures');
+            container.innerHTML = '';
+            for (const img of images) {
+                const el = document.createElement('img');
+                el.src = 'data:image/png;base64,' + img.base64;
+                el.alt = img.type;
+                el.title = img.type;
+                container.appendChild(el);
+            }
+        }
+
+        function showTextContent(text) {
+            let textDiv = document.getElementById('pdfText');
+            if (!textDiv) {
+                textDiv = document.createElement('div');
+                textDiv.id = 'pdfText';
+                textDiv.style.marginTop = '2em';
+                document.body.appendChild(textDiv);
+            }
+            textDiv.innerHTML = '<h2>Extracted Text</h2><pre>' + text + '</pre>';
+        }
+
+        document.getElementById('extractBtn').onclick = async function() {
+            const input = document.getElementById('pdfInput');
+            if (!input.files.length) {
+                alert('Please select a PDF file.');
+                return;
+            }
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            document.getElementById('status').textContent = 'Extracting signatures...';
+            const res = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('status').textContent = 'Extraction complete!';
+                showBase64Signatures(data.images);
+                showTextContent(data.text);
+            } else {
+                const err = await res.json();
+                document.getElementById('status').textContent = err.error || 'Extraction failed.';
+            }
+        };
+    </script>
+</body>
+</html>
