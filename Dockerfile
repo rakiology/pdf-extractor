@@ -1,6 +1,6 @@
 FROM python:3.11-slim
 
-# Install dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     inkscape \
     xvfb \
@@ -10,20 +10,20 @@ RUN apt-get update && apt-get install -y \
     libxext6 \
     && apt-get clean
 
-# Set display for xvfb
+# Set display for Inkscape
 ENV DISPLAY=:99
 
-# Set work directory
+# Set working directory
 WORKDIR /app
 
 # Copy project files
-COPY . /app
+COPY . .
 
-# Install Python packages
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose Flask port
+# Expose the port Render will scan
 EXPOSE 10000
 
-# Run using xvfb
-CMD ["xvfb-run", "python3", "app.py"]
+# Run Flask with xvfb
+CMD ["xvfb-run", "python", "app.py"]
