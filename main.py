@@ -5,38 +5,51 @@ import re
 from pathlib import Path
 import cv2
 import numpy as np
+import platform
+
+# ⬇ Cross-platform Inkscape path
+def get_inkscape_path():
+    return os.environ.get("INKSCAPE_PATH") or (
+        r"C:\Program Files\Inkscape\bin\inkscape.exe" if platform.system() == "Windows" else "inkscape"
+    )
 
 def convert_pdf_to_svgs(pdf_path, output_dir="output_svgs"):
-    INKSCAPE_PATH = r"C:\Program Files\Inkscape\bin\inkscape.exe"  # Adjust if different
+    INKSCAPE_PATH = get_inkscape_path()
     os.makedirs(output_dir, exist_ok=True)
-    print(f"Converting PDF to SVG pages...")
+    print(f"Converting PDF to SVG pages using Inkscape at: {INKSCAPE_PATH}")
 
-    # Inkscape CLI uses 1-based indexing for PDF pages
     page_count = get_pdf_page_count(pdf_path)
     valid_svgs = []
 
     for i in range(1, page_count + 1):
         output_svg = os.path.join(output_dir, f"page_{i}.svg")
-        subprocess.run([
-            INKSCAPE_PATH,
-            f"--pages={i}",
-            pdf_path,
-            "--export-type=svg",
-            "--export-filename", output_svg
-        ], check=True)
+        try:
+            result = subprocess.run([
+                INKSCAPE_PATH,
+                f"--pages={i}",
+                pdf_path,
+                "--export-type=svg",
+                "--export-filename", output_svg
+            ], check=True, capture_output=True, text=True)
+            print(result.stdout)
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Inkscape failed: {e.stderr}")
+            continue
+
         with open(output_svg, 'r', encoding='utf-8') as f:
             svg_content = f.read()
-        # Improved heuristic: skip if only a single black rect or no content
+
         has_content = any(tag in svg_content for tag in ['<image', '<path', '<g'])
         is_black_rect = (
             svg_content.count('<rect') == 1 and
-            ('fill="#000000"' in svg_content or 'fill:#000000' in svg_content or 'fill="#000"' in svg_content or 'fill:#000"' in svg_content)
+            any(black in svg_content for black in ['fill="#000000"', 'fill:#000000', 'fill="#000"', 'fill:#000"'])
         )
+
         if has_content and not is_black_rect:
             valid_svgs.append(output_svg)
-            print(f"Saved SVG: {output_svg}")
+            print(f"✓ Saved SVG: {output_svg}")
         else:
-            print(f"Skipped black/empty SVG: {output_svg}")
+            print(f"⚠️ Skipped black/empty SVG: {output_svg}")
             os.remove(output_svg)
     
     return valid_svgs
@@ -55,18 +68,16 @@ def extract_base64_images_from_svg(svg_path, output_dir=None):
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     human_found = False
     sig_count = 1
-    black_threshold = 10  # pixel intensity threshold for black
+    black_threshold = 10
 
-    # Only process up to 3 images, but will filter out black ones
     for i, match in enumerate(matches[:3]):
         image_data = base64.b64decode(match)
         nparr = np.frombuffer(image_data, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None:
             continue
-        # Check if image is (almost) all black
         if (img < black_threshold).all():
-            continue  # skip black image
+            continue
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         faces = face_cascade.detectMultiScale(gray, 1.1, 4)
         if len(faces) > 0 and not human_found:
@@ -76,7 +87,7 @@ def extract_base64_images_from_svg(svg_path, output_dir=None):
             results.append({"type": f"signature{sig_count}", "base64": match})
             sig_count += 1
         if len(results) == 2:
-            break  # Only output 2 images
+            break
     return results
 
 def extract_text_from_pdf(pdf_path):
@@ -110,7 +121,6 @@ def extract_all_from_pdf(pdf_path):
     text = extract_text_from_pdf(pdf_path)
     return {"images": images, "text": text}
 
-# Example usage
 if __name__ == "__main__":
-    pdf_path = "e82245d0ff93266c.pdf"  # Replace with your file
+    pdf_path = "e82245d0ff93266c.pdf"
     extract_signatures_from_pdf(pdf_path)
